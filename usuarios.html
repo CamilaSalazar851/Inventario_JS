@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InventarioPro - Usuarios</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">InventarioPro</a>
+
+            <div class="nav-menu">
+                <a href="login.html" class="nav-item">Salir</a>
+                <a href="inventario.html" class="nav-item">Inventario</a>
+                <a href="usuarios.html" class="nav-item active">Usuarios</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h2>Registrar Nuevo Usuario</h2>
+            <p>Asigne un nombre, usuario y rol.</p>
+
+            <form class="usuario-form" id="usuario-from">
+
+                <div class="grupo">
+                    <label>Nombre Completo</label>
+                    <input
+                        type="text"
+                        id="nombre"
+                        required
+                    >
+                </div>
+
+                <div class="grupo">
+                    <label>Usuario</label>
+                    <input
+                        type="text"
+                        id="usuario"
+                        required
+                    >
+                </div>
+
+                <div class="grupo">
+                    <label>Rol de Acceso</label>
+
+                    <select id="rolUsuario" required>
+                        <option value="" selected disabled>Seleccione un rol</option>
+                        <option value="Administrador">Administrador</option>
+                        <option value="Editor">Editor de Stock</option>
+                        <option value="Solo Lectura">Solo Lectura</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-agregar">
+                    Guardar Usuario
+                </button>
+
+            </form>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Usuarios</h2>
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody id="tablaUsuarios">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <script src="usuario.js"></script>
+
+</body>
+</html>
