@@ -5,9 +5,10 @@ let idProductoUpdate = null;
 
 document.addEventListener("DOMContentLoaded",()=>{
     let login = sessionStorage.getItem("login")
+    /*
     if(login != "True"){
         window.location.href = "login.html";
-    }
+    }*/
 })
 
 btnGuardarProducto.addEventListener("submit",(ev)=>{

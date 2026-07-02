@@ -1,4 +1,4 @@
-const URL = "https://stock-flow-354d0-default-rtdb.firebaseio.com";
+const API_URL = "https://stock-flow-354d0-default-rtdb.firebaseio.com/usuarios";
 const formUsuario = document.getElementById("usuario-from");
 
 let listaUsuarios = [];
@@ -6,51 +6,63 @@ let idUsuarioUpdate = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   let login = sessionStorage.getItem("login");
-
+/*
   if (login != "True") {
     window.location.href = "login.html";
-  }
+  }*/
 
   cargarUsuario();
 });
 
-formUsuario.addEventListener("submit", (e) => {
+formUsuario.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const nombre = document.getElementById("nombre");
-  const usuario = document.getElementById("usuario");
-  const rolUsuario = document.getElementById("rolUsuario");
+  const password = document.getElementById("password").value;
+  const confirmarPassword = document.getElementById("confirmarPassword").value;
 
-  let nuevoUsuario = {
-    nombre: nombre.value,
-    nombreUsuario: usuario.value,
-    rolUsuario: rolUsuario.value,
+  if (password !== confirmarPassword) {
+      alert("Las contraseñas no coinciden");
+      return;
+  }
+
+  const nuevoUsuario = {
+      identificacion: document.getElementById("identificacion").value,
+      nombre: document.getElementById("nombre").value,
+      cargo: document.getElementById("cargo").value,
+      password: password
   };
 
-  let usuarios = descargarUsuarios();
+  try {
+      const respuesta = await fetch(`${API_URL}.json`, {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json"
+          },
+          body: JSON.stringify(nuevoUsuario)
+      });
 
-  if (usuarios == null) {
-    usuarios = [];
+      if (respuesta.ok) {
+          alert("Usuario registrado correctamente");
+          formUsuario.reset();
+          cargarTabla();
+      }
+  } catch (error) {
+      console.error(error);
+      alert("Error al guardar el usuario");
   }
-
-  if (idUsuarioUpdate != null) {
-    usuarios[idUsuarioUpdate] = nuevoUsuario;
-
-    alert("Usuario actualizado correctamente");
-  } else {
-    usuarios.push(nuevoUsuario);
-
-    alert("Usuario registrado correctamente");
-  }
-
-  localStorage.setItem("usuarios", JSON.stringify(usuarios));
-
-  idUsuarioUpdate = null;
-
-  limpiarForm();
-
-  cargarUsuario();
 });
+
+async function descargarUsuarios() {
+  const respuesta = await fetch(`${API_URL}.json`);
+  const datos = await respuesta.json();
+
+  if (!datos) return [];
+
+  return Object.keys(datos).map(id => ({
+      id,
+      ...datos[id]
+  }));
+}
 
 function cargarUsuario() {
   const tabla = document.getElementById("tablaUsuarios");
