@@ -1,31 +1,48 @@
 const form = document.querySelector("#form-login");
 
-form.addEventListener("submit",async (ev)=>{
+form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
 
-    const identificacion = document.querySelector("#identificacion");
-    const clave = document.querySelector("#clave");
+    const identificacionInput = document.querySelector("#identificacion").value.trim();
+    const claveInput = document.querySelector("#clave").value;
 
-    const user = await validateUser(identificacion.value)
+    // Buscamos el usuario en la base de datos
+    const user = await validateUser(identificacionInput, claveInput);
 
-    if (user != null) {
+    if (user !== null) {
+        alert(`¡Bienvenido al sistema, ${user.nombre}!`);
+        sessionStorage.setItem("login", "True");
+        sessionStorage.setItem("usuarioActivo", JSON.stringify(user));
         
-        if (clave.value === user.clave) {
-            alert("Credenciales correctas");
-            window.location.href="usuarios.html";
-            return;
-        } 
+        // Redirección al módulo de usuarios tras el éxito
+        window.location.href = "usuarios.html";
+        return;
     }
 
-    alert("Credenciales Incorrectas");
+    alert("Número de identificación o contraseña incorrectos.");
 });
 
-async function validateUser(userId){
+async function validateUser(userId, userPassword) {
     try {
-        const res = await fetch(`https://stock-flow-354d0-default-rtdb.firebaseio.com/user/${userId}.json`);
-    return await res.json()
-    } catch(err) {
-        console.error(err);
+        // Consultamos el nodo correcto en Firebase: /usuarios
+        const res = await fetch("https://stock-flow-354d0-default-rtdb.firebaseio.com/usuarios.json");
+        const datos = await res.json();
+
+        if (!datos) return null;
+
+        // CORREGIDO: Usamos 'in' en lugar de 'en' para recorrer el objeto correctamente
+        for (const id in datos) {
+            const usuario = datos[id];
+            
+            // Validamos que coincida el número de identificación y la contraseña (password)
+            if (usuario.identificacion === userId && usuario.password === userPassword) {
+                return usuario; // Retorna el objeto del usuario encontrado
+            }
+        }
+        
+        return null; // No se encontró coincidencia
+    } catch (err) {
+        console.error("Error en la autenticación:", err);
         return null;
     }
 }
