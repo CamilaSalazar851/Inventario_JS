@@ -38,8 +38,8 @@ class Tabla extends HTMLElement {
             const idRegistro = fila.codigo || fila.id; 
             filasHtml += `
                 <td>
-                    <button class="btn-editar" data-id="${idRegistro}" data-index="${index}">Act</button>
-                    <button class="btn-eliminar" data-id="${idRegistro}" data-index="${index}">Eli</button>
+                    <button class="btn-editar" data-id="${idRegistro}" data-index="${index}">Editar</button>
+                    <button class="btn-eliminar" data-id="${idRegistro}" data-index="${index}">Eliminar</button>
                 </td>
             `;
             filasHtml += `</tr>`;

@@ -1,244 +1,205 @@
+// ==========================================================================
+// CONSTANTE DE CONEXIÓN REST API (PROPORCIONADA POR EL USUARIO)
+// ==========================================================================
 const API_URL = "https://stock-flow-354d0-default-rtdb.firebaseio.com/productos";
-const formProducto = document.getElementById("producto-form"); 
-const formStock = document.getElementById("form-stock");
-const chkEsTerminado = document.getElementById("esTerminado");
-const seccionFormula = document.getElementById("seccion-formula");
-const btnAgregarIngrediente = document.getElementById("btn-agregar-ingrediente");
-const txtBuscador = document.getElementById("buscador");
 
-let formulaTemporal = {}; 
-let todosLosProductos = []; 
-let ModoEdicion = false; 
+// ==========================================================================
+// REFERENCIAS DEL DOM
+// ==========================================================================
+const productoForm = document.getElementById("producto-form");
+const btnGuardar = document.getElementById("btnGuardar");
+const contenedorTablaComponente = document.getElementById("contenedor-tabla-componente");
+const tipoProductoSelect = document.getElementById("tipo-producto");
+const cantidadInput = document.getElementById("cantidad");
 
-document.addEventListener("DOMContentLoaded", () => {
-    if (sessionStorage.getItem("login") !== "True") {
-        window.location.href = "login.html";
-        return;
+// Variable para controlar el Estado de Edición
+let codigoEnEdicion = null;
+
+// ==========================================================================
+// CONTROL INTERACTIVO DE ENTRADA DE STOCK (PRODUCCIÓN VS COMPRA)
+// ==========================================================================
+tipoProductoSelect.addEventListener("change", () => {
+    if (tipoProductoSelect.value === "si") {
+        cantidadInput.value = 0;
+        cantidadInput.disabled = true;
+        cantidadInput.placeholder = "Se genera en producción";
+    } else {
+        cantidadInput.disabled = false;
+        cantidadInput.placeholder = "0";
     }
-    
-    chkEsTerminado.addEventListener("change", (e) => {
-        seccionFormula.style.display = e.target.checked ? "block" : "none";
-        if (e.target.checked) cargarSelectMateriasPrimas();
-    });
-
-    btnAgregarIngrediente.addEventListener("click", agregarIngredienteAFormula);
-    txtBuscador.addEventListener("input", filtrarProductos);
-
-    cargarInventario();
 });
 
-// Guardar o modificar un producto utilizando su CÓDIGO único como clave en Firebase
-formProducto.addEventListener("submit", async (e) => {
+// ==========================================================================
+// COMPONENTE: OBTENER DATOS Y RENDERIZAR TABLA (GET)
+// ==========================================================================
+function cargarTablaComponente() {
+    // Al usar la API REST de Firebase, añadimos obligatoriamente ".json" al final
+    fetch(`${API_URL}.json`)
+        .then(response => response.json())
+        .then(productosDB => {
+            
+            // 1. Validar si la base de datos está vacía
+            if (!productosDB) {
+                contenedorTablaComponente.innerHTML = `
+                    <div style="text-align: center; color: #777; padding: 32px 0; font-size: 14px;">
+                        No hay artículos registrados en la base de datos de Firebase.
+                    </div>`;
+                return;
+            }
+
+            // 2. Estructura de cabeceras del componente Tabla
+            let htmlComponente = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>¿Producto Terminado?</th>
+                            <th>Stock</th>
+                            <th>Precio Unitario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // 3. Iteramos las llaves del JSON (Códigos de producto)
+            const codigos = Object.keys(productosDB);
+            codigos.forEach(codigo => {
+                const item = productosDB[codigo];
+                const textoTerminado = item.productoTerminado === "si" ? "Sí (Producto)" : "No (Materia Prima)";
+
+                htmlComponente += `
+                    <tr>
+                        <td><strong>${codigo}</strong></td>
+                        <td>${item.nombre}</td>
+                        <td>${textoTerminado}</td>
+                        <td>${item.stock}</td>
+                        <td>$${parseFloat(item.precio).toFixed(2)}</td>
+                        <td>
+                            <button class="btn-editar" onclick="prepararEdicion('${codigo}')">Editar</button>
+                            <button class="btn-eliminar" onclick="eliminarProducto('${codigo}')">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            htmlComponente += `
+                    </tbody>
+                </table>
+            `;
+
+            // 4. Inyección del componente en el HTML
+            contenedorTablaComponente.innerHTML = htmlComponente;
+        })
+        .catch(error => console.error("Error al leer de Firebase:", error));
+}
+
+// Carga inicial al abrir la página
+cargarTablaComponente();
+
+// ==========================================================================
+// OPERACIÓN: GUARDAR NUEVO / ACTUALIZAR EXISTENTE (PUT / PATCH)
+// ==========================================================================
+productoForm.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const codigo = document.getElementById("codigo").value.trim();
     const nombre = document.getElementById("nombre").value.trim();
-    const proveedor = document.getElementById("proveedor").value.trim();
-    const esTerminado = chkEsTerminado.checked;
+    const tipoProducto = tipoProductoSelect.value;
+    const cantidad = parseInt(cantidadInput.value);
+    const precio = parseFloat(document.getElementById("precio").value);
 
-    const producto = {
-        codigo,
-        nombre,
-        proveedor,
-        esTerminado,
-        stock: 0 
+    // Creamos la estructura del objeto a enviar
+    const datosProducto = {
+        nombre: nombre,
+        productoTerminado: tipoProducto,
+        stock: cantidad,
+        precio: precio
     };
 
-    if (esTerminado) {
-        if (Object.keys(formulaTemporal).length === 0) {
-            alert("Por favor, añada al menos una materia prima a la fórmula.");
-            return;
-        }
-        producto.formula = formulaTemporal;
-    }
-
-    try {
-        if (ModoEdicion) {
-            const resProd = await fetch(`${API_URL}/${codigo}.json`);
-            const prodActual = await resProd.json();
-            if (prodActual) {
-                producto.stock = prodActual.stock || 0;
+    if (codigoEnEdicion) {
+        // --- MODO EDICIÓN (PATCH) ---
+        fetch(`${API_URL}/${codigoEnEdicion}.json`, {
+            method: 'PATCH',
+            body: JSON.stringify(datosProducto),
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(() => {
+            // Si cambió a materia prima, eliminamos la receta usando DELETE en esa ruta específica
+            if (tipoProducto === "no") {
+                return fetch(`${API_URL}/${codigoEnEdicion}/receta.json`, { method: 'DELETE' });
             }
-        }
-
-        const respuesta = await fetch(`${API_URL}/${codigo}.json`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(producto)
+        })
+        .then(() => {
+            codigoEnEdicion = null;
+            btnGuardar.textContent = "Guardar Artículo";
+            cantidadInput.disabled = false;
+            productoForm.reset();
+            cargarTablaComponente(); // Recargamos el componente para ver los cambios
         });
 
-        if (respuesta.ok) {
-            alert(ModoEdicion ? "Producto actualizado con éxito" : "Producto registrado con éxito");
-            
-            formProducto.reset();
-            document.getElementById("codigo").disabled = false;
-            seccionFormula.style.display = "none";
-            formulaTemporal = {};
-            document.getElementById("lista-formula-visual").innerHTML = "";
-            ModoEdicion = false;
-            formProducto.querySelector("button[type='submit']").textContent = "Guardar Producto";
-            
-            cargarInventario();
-        }
-    } catch (error) {
-        console.error("Error al guardar el producto:", error);
-    }
-});
+    } else {
+        // --- MODO NUEVO REGISTRO (PUT con ID manual incremental) ---
+        fetch(`${API_URL}.json`)
+            .then(res => res.json())
+            .then(productosDB => {
+                const totalExistentes = productosDB ? Object.keys(productosDB).length + 1 : 1;
+                const prefijo = tipoProducto === "si" ? "PROD_" : "MAT_";
+                const nuevoCodigo = prefijo + String(totalExistentes).padStart(3, '0');
 
-// Incrementar saldo de un artículo en stock (Abastecimiento)
-formStock.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const codigo = document.getElementById("codigo-stock").value.trim();
-    const cantidadAumentar = parseInt(document.getElementById("cantidad-stock").value);
-
-    try {
-        const respuestaVerificar = await fetch(`${API_URL}/${codigo}.json`);
-        const productoExistente = await respuestaVerificar.json();
-
-        if (!productoExistente) {
-            alert("El código del producto no se encuentra registrado.");
-            return;
-        }
-
-        const nuevoStock = (productoExistente.stock || 0) + cantidadAumentar;
-
-        const respuestaUpdate = await fetch(`${API_URL}/${codigo}/stock.json`, {
-            method: "PUT",
-            body: JSON.stringify(nuevoStock)
-        });
-
-        if (respuestaUpdate.ok) {
-            alert(`Stock incrementado con éxito. Saldo actual: ${nuevoStock}`);
-            formStock.reset();
-            cargarInventario();
-        }
-    } catch (error) {
-        console.error("Error al actualizar el stock:", error);
-    }
-});
-
-async function descargarInventario() {
-    try {
-        const respuesta = await fetch(`${API_URL}.json`);
-        const datos = await respuesta.json();
-        if (!datos) return [];
-        return Object.keys(datos).map(key => datos[key]);
-    } catch (error) {
-        console.error("Error al descargar inventario:", error);
-        return [];
-    }
-}
-
-async function cargarInventario() {
-    const contenedor = document.getElementById("contenedorTablaInventario");
-    contenedor.innerHTML = "<p>Cargando inventario de la planta...</p>";
-
-    todosLosProductos = await descargarInventario();
-    renderizarTabla(todosLosProductos);
-}
-
-function renderizarTabla(lista) {
-    const contenedor = document.getElementById("contenedorTablaInventario");
-    contenedor.innerHTML = "";
-
-    const miTabla = document.createElement("mi-tabla");
-    
-    const columnas = ["Código", "Nombre", "Proveedor", "Stock actual"];
-    const claves = ["codigo", "nombre", "proveedor", "stock"];
-
-    miTabla.setTabla(columnas, claves, lista);
-
-    miTabla.addEventListener("editar-fila", (e) => {
-        const { id, datos } = e.detail;
-        ModoEdicion = true;
-        
-        formProducto.querySelector("button[type='submit']").textContent = "Actualizar Producto";
-        
-        document.getElementById("codigo").value = datos.codigo;
-        document.getElementById("codigo").disabled = true; 
-        document.getElementById("nombre").value = datos.nombre;
-        document.getElementById("proveedor").value = datos.proveedor;
-        
-        if (datos.esTerminado) {
-            document.getElementById("esTerminado").checked = true;
-            seccionFormula.style.display = "block";
-            formulaTemporal = datos.formula || {};
-            
-            cargarSelectMateriasPrimas();
-            const listaVisual = document.getElementById("lista-formula-visual");
-            listaVisual.innerHTML = "";
-            Object.keys(formulaTemporal).forEach(mpCodigo => {
-                const li = document.createElement("li");
-                li.textContent = `Materia Prima: ${mpCodigo} ➔ Cantidad Requerida: ${formulaTemporal[mpCodigo]}`;
-                listaVisual.appendChild(li);
-            });
-        } else {
-            document.getElementById("esTerminado").checked = false;
-            seccionFormula.style.display = "none";
-            formulaTemporal = {};
-        }
-    });
-
-    miTabla.addEventListener("eliminar-fila", async (e) => {
-        const { id } = e.detail;
-        if (confirm(`¿Está seguro de que desea eliminar el producto con código: ${id}?`)) {
-            try {
-                const respuesta = await fetch(`${API_URL}/${id}.json`, {
-                    method: "DELETE"
-                });
-                if (respuesta.ok) {
-                    alert("Producto eliminado correctamente.");
-                    cargarInventario();
+                // Si es producto terminado agregamos una receta por defecto
+                if (tipoProducto === "si") {
+                    datosProducto.receta = { "harina": 100, "mantequilla": 100, "huevo": 1 };
                 }
-            } catch (error) {
-                console.error("Error al eliminar el producto:", error);
-            }
-        }
-    });
 
-    contenedor.appendChild(miTabla);
-}
-
-function cargarSelectMateriasPrimas() {
-    const select = document.getElementById("select-materia-prima");
-    select.innerHTML = '<option value="">-- Seleccione Materia Prima --</option>';
-
-    const materiasPrimas = todosLosProductos.filter(p => !p.esTerminado);
-
-    materiasPrimas.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.codigo;
-        opt.textContent = `${m.nombre} (${m.codigo})`;
-        select.appendChild(opt);
-    });
-}
-
-function agregarIngredienteAFormula() {
-    const select = document.getElementById("select-materia-prima");
-    const cantidad = parseInt(document.getElementById("cantidad-materia").value);
-
-    if (!select.value || isNaN(cantidad) || cantidad <= 0) {
-        alert("Selecciona una materia prima y asigne una cantidad válida.");
-        return;
+                // Guardamos directamente apuntando al nuevo nodo /productos/CODIGO.json
+                return fetch(`${API_URL}/${nuevoCodigo}.json`, {
+                    method: 'PUT',
+                    body: JSON.stringify(datosProducto),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            })
+            .then(() => {
+                productoForm.reset();
+                cargarTablaComponente(); // Refrescar tabla dinámicamente
+            });
     }
+});
 
-    formulaTemporal[select.value] = cantidad;
+// ==========================================================================
+// OPERACIÓN: PREPARAR EDICIÓN (TRAER REGISTRO DE FIREBASE)
+// ==========================================================================
+window.prepararEdicion = function(codigo) {
+    fetch(`${API_URL}/${codigo}.json`)
+        .then(res => res.json())
+        .then(item => {
+            document.getElementById("nombre").value = item.nombre;
+            tipoProductoSelect.value = item.productoTerminado;
+            cantidadInput.value = item.stock;
+            document.getElementById("precio").value = item.precio;
 
-    const listaVisual = document.getElementById("lista-formula-visual");
-    const li = document.createElement("li");
-    li.textContent = `Materia Prima: ${select.value} ➔ Cantidad Requerida: ${cantidad}`;
-    listaVisual.appendChild(li);
+            if (item.productoTerminado === "si") {
+                cantidadInput.disabled = true;
+            } else {
+                cantidadInput.disabled = false;
+            }
 
-    select.value = "";
-    document.getElementById("cantidad-materia").value = "";
-}
+            codigoEnEdicion = codigo;
+            btnGuardar.textContent = "Actualizar en Firebase";
+            document.getElementById("nombre").focus();
+        });
+};
 
-function filtrarProductos() {
-    const texto = txtBuscador.value.toLowerCase();
-    const filtrados = todosLosProductos.filter(p => 
-        p.nombre.toLowerCase().includes(texto) || 
-        p.codigo.toLowerCase().includes(texto)
-    );
-    renderizarTabla(filtrados);
-}
+// ==========================================================================
+// OPERACIÓN: ELIMINACIÓN FÍSICA (DELETE)
+// ==========================================================================
+window.eliminarProducto = function(codigo) {
+    if (confirm(`¿Está seguro de eliminar permanentemente el artículo ${codigo}?`)) {
+        fetch(`${API_URL}/${codigo}.json`, {
+            method: 'DELETE'
+        })
+        .then(() => {
+            cargarTablaComponente(); // Volver a pintar la tabla tras borrar
+        });
+    }
+};

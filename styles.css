@@ -162,7 +162,6 @@ body {
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
-    display: inline-block;
 }
 
 .nav-item:hover {
@@ -170,7 +169,7 @@ body {
     color: #1f2937;
 }
 
-.nav-menu .nav-item.active {
+.nav-item.active {
     background-color: #eff6ff !important;
     color: #2540dd !important;
     font-weight: 600;
@@ -184,7 +183,7 @@ body {
     max-width: 1200px;
     margin: 32px auto 0 auto;
     padding: 0 24px;
-    display: flex;
+    display: flex;             /* Cambiado de Grid a Flex para tirar todo abajo */
     flex-direction: column;
     gap: 32px;
 }
@@ -196,12 +195,6 @@ body {
     border: 1px solid #e5e7eb;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     width: 100%;
-}
-
-/* Para los formularios horizontales, permitimos que la tarjeta superior use el ancho completo */
-.card:has(form) {
-    max-width: 1200px;
-    margin: 0 auto;
 }
 
 .card h2 {
@@ -218,13 +211,12 @@ body {
 }
 
 /* ==========================================================================
-   FORMULARIOS HORIZONTALES (INVENTARIO Y USUARIOS)
+   FORMULARIOS HORIZONTALES PROPORCIONALES (INVENTARIO Y USUARIOS)
    ========================================================================== */
 .producto-form, .usuario-form {
     display: flex;
-    flex-direction: row;      /* Alinea los campos de izquierda a derecha */
-    flex-wrap: wrap;          /* Permite bajar los campos si no caben en pantallas pequeñas */
-    align-items: flex-end;    /* Alinea el botón perfectamente con los inputs */
+    flex-direction: row;      /* Uno al lado del otro horizontalmente */
+    align-items: flex-end;    /* Alineación perfecta por la base inferior */
     gap: 16px;
     width: 100%;
 }
@@ -233,8 +225,32 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    flex: 1;                  /* Hace que todos los campos crezcan equitativamente */
-    min-width: 140px;         /* Evita que se encojan demasiado */
+}
+
+/* --- TAMAÑOS PROPORCIONALES SEGÚN EL TIPO DE DATO --- */
+
+/* 1. Campos de identificación o números cortos (ID, Cantidad, Precio) -> Más pequeños */
+.grupo:has(input[id="identificacion"]),
+.grupo:has(input[id="cantidad"]),
+.grupo:has(input[id="precio"]) {
+    flex: 1 1 0%;
+    min-width: 100px;
+}
+
+/* 2. Campos de texto estándar o intermedios (Usuario, Cargo, Contraseñas) */
+.grupo:has(input[id="usuario"]),
+.grupo:has(input[id="cargo"]),
+.grupo:has(input[type="password"]),
+.grupo:has(input[type="tipo-producto"]),
+.grupo:has(select) { 
+    flex: 1.5 1 0%;
+    min-width: 130px;
+}
+
+/* 3. Campos extensos de texto descriptivo (Nombre de Producto, Nombre completo) -> Toman más prioridad */
+.grupo:has(input[id="nombre"]) {
+    flex: 2.5 1 0%;
+    min-width: 180px;
 }
 
 .grupo label {
@@ -251,7 +267,7 @@ body {
     background-color: #fff;
     transition: all 0.2s;
     width: 100%;
-    height: 41px;             /* Altura fija para emparejar con el botón */
+    height: 41px;             /* Altura unificada */
 }
 
 .producto-form input:focus, .usuario-form input:focus {
@@ -275,9 +291,9 @@ body {
     justify-content: center;
     gap: 8px;
     height: 41px; 
-    white-space: nowrap;
-    width: auto;              /* Se ajusta al tamaño de su texto en horizontal */
-    flex: 0 0 auto;           /* No se estira como los inputs */
+    white-space: nowrap;      /* Evita que el texto del botón se corte en dos líneas */
+    width: auto;              /* Se adapta perfectamente a lo ancho de su texto */
+    flex: 0 0 auto;           /* Bloquea la deformación horizontal del botón */
     cursor: pointer;
     border: none;
     transition: background-color 0.2s;
@@ -355,24 +371,26 @@ tr:hover {
 }
 
 /* ==========================================================================
-   ESTILOS EXCLUSIVOS PARA EL MÓDULO DE PRODUCCIÓN (FORMULARIO HORIZONTAL)
+   ESTILOS EXCLUSIVOS PARA EL MÓDULO DE PRODUCCIÓN (HORIZONTAL PROPORCIONAL)
    ========================================================================== */
 .producto-form-produccion {
     display: flex;
-    flex-direction: row;      /* Fila horizontal */
-    flex-wrap: wrap;
+    flex-direction: row;      /* Campos en una sola fila */
     align-items: flex-end;
     gap: 16px;
     margin-top: 15px;
     width: 100%;
 }
 
-.grupo-produccion {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    flex: 1;
-    min-width: 200px;
+/* El buscador de productos/fórmulas toma mayor espacio */
+.grupo-produccion:has(select) {
+    flex: 3 1 0%;
+}
+
+/* El número de unidades es más corto */
+.grupo-produccion:has(input[type="number"]) {
+    flex: 1 1 0%;
+    min-width: 140px;
 }
 
 .grupo-produccion label {
@@ -417,9 +435,8 @@ tr:hover {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* La caja de la receta ocupa el 100% abajo del formulario si llega a activarse */
 .receta-box {
-    margin: 5px 0;
+    margin-top: 16px;
     font-size: 14px;
     color: #475569;
     background-color: #f8fafc;
@@ -453,7 +470,7 @@ tr:hover {
 }
 
 .btn-producir {
-    background-color: #10b981;
+    background-color: #1b30b5;
     color: white;
     border: none;
     padding: 11px 24px;
@@ -467,11 +484,11 @@ tr:hover {
     white-space: nowrap;
     flex: 0 0 auto;
     text-align: center;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 6px -1px #1b30b5;
 }
 
 .btn-producir:hover {
-    background-color: #059669;
+    background-color: #1b30b5;
 }
 
 .btn-producir:active {
